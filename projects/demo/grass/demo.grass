@@ -1,0 +1,10 @@
+#.grass file structure:
+#
+#Class: nameOfThisInstanceOfTheClass
+#- property: valueOfThePropertyOrPathIfItsAResource
+#	ChildClass: nameOfThisInstanceOfTheChildClass
+#	> pathToAnotherGrassFile: nameOfThisInstanceOfTheGrass
+
+DemoGrass: demoGrass
+	Sprite: sprite
+	- texture: assets/sprites/grass.png

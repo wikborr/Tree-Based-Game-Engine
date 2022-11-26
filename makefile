@@ -1,8 +1,8 @@
-OBJS = *.cpp src/*.cpp deps/*.c deps/*.cpp projects/test/src/*.hpp
+OBJS = *.cpp src/*.cpp src/servers/*.cpp src/resources/*.cpp src/leaves/*.cpp src/leaves/leaves2D/*.cpp deps/*.c deps/*.cpp projects/demo/prj_src/*.cpp projects/demo/res.res
 
 CC = g++
 
-INCLUDE_PATHS = -I./deps/include -I./src  -I./projects
+INCLUDE_PATHS = -I./deps/include -I./src  -I./projects/demo/prj_src
 
 LIBRARY_PATHS = -L./deps/lib
 
