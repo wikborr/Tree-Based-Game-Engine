@@ -1,9 +1,16 @@
 #include "servers/GrassLoader.h"
 
+#include "servers/ResourceManager.h"
+
 #include "Leaf.h"
 #include "leaves/Leaf2D.h"
 #include "leaves/leaves2D/Sprite.h"
-#include "servers/ResourceManager.h"
+#include "leaves/Timer.h"
+#include "leaves/Tween.h"
+#include "leaves/UILayer.h"
+#include "leaves/BGLayer.h"
+#include "leaves/leaves2D/ColorRect.h"
+#include "leaves/leaves2D/Camera2D.h"
 
 #include <sstream>
 #include <stack>
@@ -19,6 +26,12 @@ GrassLoader::GrassLoader(){
 		{"Leaf", []()->Leaf*{return new Leaf;}},
 		{"Leaf2D", []()->Leaf*{return new Leaf2D;}},
 		{"Sprite", []()->Leaf*{return new Sprite;}},
+		{"Timer", []()->Leaf*{return new Timer;}},
+		{"Tween", []()->Leaf*{return new Tween;}},
+		{"UILayer", []()->Leaf*{return new UILayer;}},
+		{"BGLayer", []()->Leaf*{return new BGLayer;}},
+		{"ColorRect", []()->Leaf*{return new ColorRect;}},
+		{"Camera2D", []()->Leaf*{return new Camera2D;}},
 	};
 
 	auto projectLeaves =  LEAVES::mapLeaves();
@@ -27,7 +40,7 @@ GrassLoader::GrassLoader(){
 
 void GrassLoader::propertyIfBlock(Leaf* leaf, std::string propName, std::string propValue){
 	if(leaf->propPointers.count(propName) == 0){
-		std::cerr<<"ERROR: incorrect property name in the grass file";
+		std::cerr<<"ERROR: incorrect property name in the grass file"<<std::endl;
 		return;
 	}
 	std::string propType = leaf->propPointers.at(propName).first;
@@ -40,7 +53,6 @@ void GrassLoader::propertyIfBlock(Leaf* leaf, std::string propName, std::string 
 	else if(propType == "float") std::istringstream(propValue) >> *static_cast<float*>(propPointer);
 	else if(propType == "double") std::istringstream(propValue) >> *static_cast<double*>(propPointer);
 	else if(propType == "vec2"){
-		std::cout<<propValue<<std::endl;
 		glm::vec2& vec = *static_cast<glm::vec2*>(propPointer);
 		std::istringstream(propValue) >> vec.x >> vec.y;
 	}
@@ -93,7 +105,7 @@ Leaf* GrassLoader::loadGrass(std::string grassString){
 				colonIndex = line.find(": ");
 				std::string subGrassString = FileReader::ins().loadAsString(line.substr(0, colonIndex));
 				if(subGrassString == ""){
-					std::cerr<<"ERROR: incorrect subGrass path in the grass file";
+					std::cerr<<"ERROR: incorrect subGrass path in the grass file"<<std::endl;
 				}
 				else{
 					Leaf* subGrass = this->loadGrass(subGrassString);
@@ -106,6 +118,9 @@ Leaf* GrassLoader::loadGrass(std::string grassString){
 				}
 			}
 			else{
+				if(line.size() > 1 && line.substr(0,2) == "- "){
+					std::cerr<<"ERROR: incorrect indentation in the grass file"<<std::endl;
+				}
 				colonIndex = line.find(": ");
 				Leaf* newLeaf = this->leafPointers.at(line.substr(0, colonIndex))();
 				if(leafStack.size() > 0){

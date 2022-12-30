@@ -6,5 +6,38 @@
 #	> pathToAnotherGrassFile: nameOfThisInstanceOfTheGrass
 
 DemoGrass: demoGrass
-	Sprite: sprite
+	UILayer: uiLayer
+		ColorRect: colorRed
+		- color: 1.0 0.0 0.0
+		- width: 200
+		- height: 50
+		- position: -300 200
+	BGLayer: bgLayer
+	- scrollScale: 0.8 0.5
+	- mirrorOffset: 6000 4000
+	- startCameraPos: -3000 -2000
+		Sprite: background
+		- texture: assets/images/bg.png
+		- scale: 4 4
+	ColorRect: colorRed
+	- color: 0.0 0.0 1.0
+	- width: 300
+	- height: 300
+	Sprite: sprite1
 	- texture: assets/sprites/grass.png
+	- modulate: 1.0 1.0 1.0 1.0
+		Camera2D: camera
+		- current: 1
+		- limitUp: 10000
+		- limitDown: -10000
+		- limitLeft: -10000
+		- limitRight: 10000
+		- dragMarginUp: 0.1
+		- dragMarginDown: 0.1
+		- dragMarginLeft: 0.2
+		- dragMarginRight: 0.2
+		- smoothingEnabled: 1
+		- smoothingSpeed: 5
+	Timer: timer1
+	- waitTime: 0.5
+	Tween: tween1

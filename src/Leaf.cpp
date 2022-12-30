@@ -61,3 +61,8 @@ std::vector<Leaf*> Leaf::getAllChildren(){
 	return descendants;
 }
 
+Leaf* Leaf::getRoot(){
+	Leaf* root = this->parent;
+	while(root != nullptr) root = root->parent;
+	return root;
+}

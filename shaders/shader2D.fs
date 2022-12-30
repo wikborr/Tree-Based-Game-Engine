@@ -4,7 +4,14 @@ in vec2 texCoord;
 
 uniform vec4 color;
 uniform sampler2D tex;
+uniform bool colorOnly = false;
 
 void main(){
-	FragColor = texture(tex, texCoord) * color;
+	if(colorOnly){
+		FragColor = color;
+	}
+	else{
+		vec4 texColor = texture(tex, texCoord);
+		FragColor = texColor*color;
+	}
 }

@@ -6,6 +6,10 @@
 #include "servers/Renderer.h"
 #include "servers/Input.h"
 
+//#include <chrono>
+//#include <thread>
+//const int MIN_TIME_LEFT = 500000;
+
 std::string Seed::plant(std::string project_dir){
 	std::string error_message = "";
 
@@ -67,11 +71,11 @@ std::string Seed::plant(std::string project_dir){
 		}
 
 		//logic updates
-		leafTree.doLeafUpdates(deltaTime);
 		error_message = leafTree.doLeafOperations();
 		if(error_message != ""){
 			return error_message;
 		}
+		leafTree.doLeafUpdates(deltaTime);
 
 		//rendering
 		error_message = Renderer::ins().render();
@@ -84,6 +88,13 @@ std::string Seed::plant(std::string project_dir){
 		
 		//check for GLFW events
 		glfwPollEvents();
+
+		//fps limit
+		if(Settings::ins().limitFPS > 0){
+			int timeLeft = static_cast<int>((lastTime + (1.0/(Settings::ins().limitFPS+1)) - glfwGetTime())*1000000);
+			//if(timeLeft >= MIN_TIME_LEFT) std::this_thread::sleep_for(std::chrono::microseconds(timeLeft/2));
+			while (glfwGetTime() < lastTime + 1.0/(Settings::ins().limitFPS+1)) {}
+		}
 	}
 
 	std::cout<<"--------------------------"<<std::endl;

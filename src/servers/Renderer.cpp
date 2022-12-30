@@ -2,7 +2,11 @@
 
 #include "Settings.h"
 #include "servers/ResourceManager.h"
+#include "leaves/UILayer.h"
+#include "leaves/BGLayer.h"
+#include "leaves/leaves2D/Camera2D.h"
 #include "leaves/leaves2D/Sprite.h"
+#include "leaves/leaves2D/ColorRect.h"
 #include <algorithm>
 
 Renderer& Renderer::ins(){
@@ -84,84 +88,112 @@ std::string Renderer::render2D(){
 	glActiveTexture(GL_TEXTURE0);
 
 	//getting all renderable 2d leaves
-	std::vector<Sprite*> sprites;
+	std::vector<std::pair<std::string,Leaf2D*>> renderables;
 
 	std::vector<Leaf*> leaves = this->leafTree->getAllLeaves();
 	for(const auto &i: leaves){
-		if(i->propPointers.count("texture") > 0) sprites.push_back(static_cast<Sprite*>(i));
+		if(i->propPointers.count("texture") > 0) renderables.push_back({"Sprite",static_cast<Leaf2D*>(i)});
+		else if(i->propPointers.count("color") > 0 && i->propPointers.count("width") > 0) renderables.push_back({"ColorRect",static_cast<Leaf2D*>(i)});
 	}
 
-	//camera
+	//default camera
 	float defaultCameraX = 0.0f - static_cast<float>(Settings::ins().game_width)/2;
 	float defaultCameraY = 0.0f - static_cast<float>(Settings::ins().game_height)/2;
+	glm::mat4 defaultViewM = glm::lookAt(glm::vec3(defaultCameraX, defaultCameraY, 1.0f), glm::vec3(defaultCameraX, defaultCameraY, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 	//view matrix
-	glm::mat4 viewM = glm::lookAt(glm::vec3(defaultCameraX, defaultCameraY, 1.0f), glm::vec3(defaultCameraX, defaultCameraY, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	this->viewM = defaultViewM;
 	
 	//perspective matrix
-	glm::mat4 perspectiveM = glm::ortho(0.0f, static_cast<float>(Settings::ins().game_width), 0.0f, static_cast<float>(Settings::ins().game_height), 0.0f, 2.0f);
+	this->perspectiveM = glm::ortho(0.0f, static_cast<float>(Settings::ins().game_width), 0.0f, static_cast<float>(Settings::ins().game_height), 0.0f, 2.0f);
 
-	//sprite rendering
+	//camera system
+	Camera2D* curCam = nullptr;
+	for(const auto& i: leaves){
+		if(i->propPointers.count("current") > 0 && static_cast<Camera2D*>(i)->current){
+			curCam = static_cast<Camera2D*>(i);
+			break;
+		}
+	}
+	if(curCam != nullptr && curCam->cameraReady){
+		glm::vec2 camPos = glm::vec2(curCam->actualPosition.x, curCam->actualPosition.y);
+		glm::vec2 screenSize = glm::vec2(curCam->zoom.x*Settings::ins().game_width, curCam->zoom.y*Settings::ins().game_height);
+		
+		//drag margins
+		if(curCam->actualPosition.y + curCam->dragMarginUp*screenSize.y/2 <= curCam->globalPosition.y){
+			camPos.y += (curCam->globalPosition.y - (curCam->actualPosition.y + curCam->dragMarginUp*screenSize.y/2));
+		}
+		else if(curCam->actualPosition.y - curCam->dragMarginDown*screenSize.y/2 >= curCam->globalPosition.y){
+			camPos.y += (curCam->globalPosition.y - (curCam->actualPosition.y - curCam->dragMarginUp*screenSize.y/2));
+		}
+		if(curCam->actualPosition.x + curCam->dragMarginRight*screenSize.x/2 <= curCam->globalPosition.x){
+			camPos.x += (curCam->globalPosition.x - (curCam->actualPosition.x + curCam->dragMarginRight*screenSize.x/2));
+		}
+		else if(curCam->actualPosition.x - curCam->dragMarginLeft*screenSize.x/2 >= curCam->globalPosition.x){
+			camPos.x += (curCam->globalPosition.x - (curCam->actualPosition.x - curCam->dragMarginLeft*screenSize.x/2));
+		}
+		curCam->actualPosition = camPos;
+
+		//smoothing
+		if(curCam->smoothingEnabled) camPos = curCam->smoothedPosition;
+
+		//offsets
+		camPos.x += curCam->offset.x;
+		camPos.y += curCam->offset.y;
+
+		//limits
+		if(curCam->limitDown > camPos.y - screenSize.y/2) camPos.y = curCam->limitDown + screenSize.y/2;
+		else if(curCam->limitUp < camPos.y + screenSize.y/2) camPos.y = curCam->limitUp - screenSize.y/2;
+		if(curCam->limitLeft > camPos.x - screenSize.x/2) camPos.x = curCam->limitLeft + screenSize.x/2;
+		else if(curCam->limitRight < camPos.x + screenSize.x/2) camPos.x = curCam->limitRight - screenSize.x/2;
+
+		this->camPos = camPos;
+		this->screenSize = screenSize;
+
+		glm::vec2 corCamPos = glm::vec2(camPos.x - screenSize.x/2, camPos.y - screenSize.y/2);
+		this->viewM = glm::lookAt(glm::vec3(corCamPos.x, corCamPos.y, 1.f), glm::vec3(corCamPos.x, corCamPos.y, 0.f), glm::vec3(0.f, 1.f, 0.f));
+		this->perspectiveM = glm::ortho(0.0f, screenSize.x, 0.0f, screenSize.y, 0.0f, 2.0f);
+	}
+
+	//rendering
 	//remove invisible (!visible or not on the screen)
-	sprites.erase(std::remove_if(sprites.begin(), sprites.end(), [](Sprite* const& sprite){return !(sprite->visible);}), sprites.end());
+	renderables.erase(std::remove_if(renderables.begin(), renderables.end(), [](std::pair<std::string, Leaf2D*> const& pair){
+		return !(pair.second->visible); //camera check here
+	}), renderables.end());
+	//changing the rendering order
+	renderables = this->vector2ZIndices(renderables);
+	renderables = this->vector2layers(renderables);
 
-	std::vector<std::vector<Sprite*>> zSprites = this->vector2ZIndices<Sprite*>(sprites);
-	for(const auto& i: zSprites){
-		for(int j = 0; j<i.size(); j++){
-			//calculating part 1
-			glm::vec4 spriteColor = i[j]->modulate * i[j]->selfModulate;
-			unsigned shaderID = this->defaultShader->ID;
-			if(i[j]->leafShader != nullptr) shaderID = i[j]->leafShader->ID;
-			
-			//checking if OpenGL context needs to be changed
-			if(j==0){
-				if(i[j]->texture != nullptr) glBindTexture(GL_TEXTURE_2D, i[j]->texture->ID);
-				else glBindTexture(GL_TEXTURE_2D, 0);
-
-				this->changeTexCoords(i[j]);
-
-				if(shaderID != this->defaultShader->ID) glUseProgram(shaderID);
-
-				glUniform4f(glGetUniformLocation(shaderID, "color"), spriteColor.r, spriteColor.g, spriteColor.b, spriteColor.a);
+	//organizing the vector into a vector of different type vectors
+	std::vector<std::pair<std::string, std::vector<Leaf2D*>>> renderablesVectors;
+	std::string curLeaf = "";
+	std::vector<Leaf2D*> curVector;
+	if(renderables.size()>0){
+		curLeaf = renderables[0].first;
+		curVector.push_back(renderables[0].second);
+		for(int i=1; i<renderables.size(); i++){
+			if(renderables[i].first != curLeaf){
+				renderablesVectors.push_back(std::pair<std::string, std::vector<Leaf2D*>>(curLeaf, curVector));
+				curLeaf = renderables[i].first;
+				curVector.clear();
 			}
-			else{
-				if(i[j]->texture != i[j-1]->texture){
-					if(i[j]->texture != nullptr) glBindTexture(GL_TEXTURE_2D, i[j]->texture->ID);
-					else glBindTexture(GL_TEXTURE_2D, 0);
-				}
+			curVector.push_back(renderables[i].second);
+		}
+		renderablesVectors.push_back(std::pair<std::string, std::vector<Leaf2D*>>(curLeaf, curVector));
+	}
 
-				this->changeTexCoords(i[j]);
-
-				if(i[j-1]->leafShader != nullptr){
-					if(shaderID != i[j-1]->leafShader->ID) glUseProgram(shaderID);
-				}
-				else if(shaderID != this->defaultShader->ID) glUseProgram(shaderID);
-
-				if(spriteColor != i[j-1]->modulate * i[j-1]->selfModulate) glUniform4f(glGetUniformLocation(shaderID, "color"), spriteColor.r, spriteColor.g, spriteColor.b, spriteColor.a);
-			}
-			
-			//calculating part 2 and drawing
-			glm::mat4 transform = i[j]->globalTransform;
-			if(!i[j]->centered && i[j]->texture != nullptr){
-				transform = glm::translate(transform, glm::vec3(static_cast<float>(i[j]->texture->width/2), static_cast<float>(i[j]->texture->height/2), 0.0f));
-			}
-			if(i[j]->flipH){
-				transform = glm::scale(transform, glm::vec3(-1.0f, 1.0f, 1.0f));
-			}
-			if(i[j]->flipV){
-				transform = glm::scale(transform, glm::vec3(1.0f, -1.0f, 1.0f));
-			}
-			//scaling to texture size
-			if(i[j]->texture != nullptr) transform = glm::scale(transform, glm::vec3(i[j]->texture->width, i[j]->texture->height, 1.0));
-
-			transform = perspectiveM*viewM*transform;
-			glUniformMatrix4fv(glGetUniformLocation(shaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(transform));
-			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-			glBindVertexArray(0);
+	//rendering
+	for(const auto& i: renderablesVectors){
+		if(i.first == "Sprite"){
+			this->renderSprites(utils::vector2vector<Sprite*, Leaf2D*>(i.second));
+		}
+		else if(i.first == "ColorRect"){
+			this->renderColorRects(utils::vector2vector<ColorRect*, Leaf2D*>(i.second));
 		}
 	}
 
 	//buffer swap
+	glBindVertexArray(0);
 	glfwSwapBuffers(Settings::ins().main_window);
 	return "";
 }
@@ -192,22 +224,258 @@ void Renderer::changeTexCoords(Sprite* sprite, Sprite* prev_sprite){
 	}
 }
 
-template <typename T>
-std::vector<std::vector<T>> Renderer::vector2ZIndices(const std::vector<T>& tVector){
-	std::vector<std::vector<T>> tVectorsVector;
+std::vector<std::pair<std::string, Leaf2D*>> Renderer::vector2ZIndices(const std::vector<std::pair<std::string, Leaf2D*>>& tVector){
+	std::vector<std::vector<std::pair<std::string, Leaf2D*>>> tVectorsVector;
 	for(unsigned z = 0; true; z++){
-		std::vector<T> zVector;
+		std::vector<std::pair<std::string, Leaf2D*>> zVector;
 		unsigned endLoopCount = 0;
 		for(const auto& i: tVector){
-			if(i->zIndex == z){
+			if(i.second->zIndex == z){
 				zVector.push_back(i);
 			}
-			if(i->zIndex <= z){
+			if(i.second->zIndex <= z){
 				endLoopCount+=1;
 			}
 		}
 		if(zVector.size() > 0) tVectorsVector.push_back(zVector);
 		if(endLoopCount == tVector.size()) break;
 	}
-	return tVectorsVector;
+	std::vector<std::pair<std::string, Leaf2D*>> finalVector;
+	for(const auto& i: tVectorsVector){
+		finalVector.insert(finalVector.end(), i.begin(), i.end());
+	}
+	return finalVector;
+}
+
+std::vector<std::pair<std::string, Leaf2D*>> Renderer::vector2layers(const std::vector<std::pair<std::string, Leaf2D*>>& tVector){
+	std::vector<std::vector<std::pair<std::string, Leaf2D*>>> tVectorsVectorBG;
+	std::vector<std::vector<std::pair<std::string, Leaf2D*>>> tVectorsVectorFG;
+	tVectorsVectorFG.push_back(std::vector<std::pair<std::string, Leaf2D*>>());
+	std::vector<std::pair<std::pair<std::string, Leaf2D*>, int>> tVectorReal;
+	for(const auto &i: tVector){
+		Leaf* parentLayer = i.second->parent;
+		while(parentLayer != nullptr && parentLayer->propPointers.count("layer") == 0) parentLayer = parentLayer->parent;
+		if(parentLayer != nullptr && static_cast<UILayer*>(parentLayer)->layer != 0){
+			if(static_cast<UILayer*>(parentLayer)->visible){
+				tVectorReal.push_back({i, static_cast<UILayer*>(parentLayer)->layer});
+			}
+		}
+		else{
+			tVectorsVectorFG.at(0).push_back(i);
+		}
+	}
+	for(int layer = 1; true; layer++){
+		std::vector<std::pair<std::string, Leaf2D*>> layerVector;
+		unsigned endLoopCount = 0;
+		for(const auto& i: tVectorReal){
+			if(i.second == layer){
+				layerVector.push_back(i.first);
+			}
+			if(i.second <= layer){
+				endLoopCount+=1;
+			}
+		}
+		if(layerVector.size() > 0) tVectorsVectorFG.push_back(layerVector);
+		if(endLoopCount == tVectorReal.size()) break;
+	}
+	for(int layer = -1; true; layer--){
+		std::vector<std::pair<std::string, Leaf2D*>> layerVector;
+		unsigned endLoopCount = 0;
+		for(const auto& i: tVectorReal){
+			if(i.second == layer){
+				layerVector.push_back(i.first);
+			}
+			if(i.second >= layer){
+				endLoopCount+=1;
+			}
+		}
+		if(layerVector.size() > 0) tVectorsVectorBG.push_back(layerVector);
+		if(endLoopCount == tVectorReal.size()) break;
+	}
+	std::vector<std::pair<std::string, Leaf2D*>> finalVector;
+	for(int i = tVectorsVectorBG.size()-1; i>=0; i--){
+		finalVector.insert(finalVector.end(), tVectorsVectorBG.at(i).begin(), tVectorsVectorBG.at(i).end());
+	}
+	for(const auto& i: tVectorsVectorFG){
+		finalVector.insert(finalVector.end(), i.begin(), i.end());
+	}
+	return finalVector;
+}
+
+void Renderer::renderLeaf2dPart1(Leaf2D* renderable, Leaf2D* prevRenderable, glm::vec4 additionalColor){
+	//calculating Leaf2D properties part 1
+	glm::vec4 leafColor = renderable->modulate * renderable->selfModulate * additionalColor;
+	this->curTransform = renderable->globalTransform;
+	this->curShaderID = this->defaultShader->ID;
+	if(renderable->leafShader != nullptr) this->curShaderID = renderable->leafShader->ID;
+
+	//checking if OpenGL context needs to be changed
+	if(prevRenderable == nullptr){
+		if(this->curShaderID != this->defaultShader->ID) glUseProgram(this->curShaderID);
+		glUniform4f(glGetUniformLocation(this->curShaderID, "color"), leafColor.r, leafColor.g, leafColor.b, leafColor.a);
+	}
+	else{
+		if(prevRenderable->leafShader != nullptr){
+			if(this->curShaderID != prevRenderable->leafShader->ID) glUseProgram(this->curShaderID);
+		}
+		else if(this->curShaderID != this->defaultShader->ID) glUseProgram(this->curShaderID);
+
+		if(leafColor != prevRenderable->modulate * prevRenderable->selfModulate) glUniform4f(glGetUniformLocation(this->curShaderID, "color"), leafColor.r, leafColor.g, leafColor.b, leafColor.a);
+	}
+}
+
+void Renderer::renderLeaf2dPart2(Leaf2D* renderable){
+	glm::mat4 finalViewM = this->viewM;
+	glm::mat4 finalPerspectiveM = this->perspectiveM;
+	glm::vec2 mirrorActiveX = glm::vec2(false);
+	glm::vec2 mirrorActiveY = glm::vec2(false);
+	glm::vec2 mirrorPos = glm::vec2(0);
+	glm::vec2 mirrorDelta = glm::vec2(0.f);
+
+	//checking for parent layers
+	Leaf* parentLayer = renderable->parent;
+	while(parentLayer != nullptr && parentLayer->propPointers.count("layer") == 0) parentLayer = parentLayer->parent;
+	if(parentLayer != nullptr){
+		float cameraX = 0.0f - static_cast<float>(Settings::ins().defaultGameWidth)/2;
+		float cameraY = 0.0f - static_cast<float>(Settings::ins().defaultGameHeight)/2;
+		if(parentLayer->propPointers.count("scrollScale") > 0){
+			BGLayer* bgLayer = static_cast<BGLayer*>(parentLayer);
+			
+			//scaling
+			glm::vec2 camPos = this->camPos;
+			camPos -= bgLayer->startCameraPos;
+			camPos *= bgLayer->scrollScale;
+			camPos += bgLayer->startCameraPos;
+			cameraX = camPos.x - this->screenSize.x/2;
+			cameraY = camPos.y - this->screenSize.y/2;
+
+			//mirroring
+			if(bgLayer->mirrorOffset.x != 0.f){
+				mirrorActiveX.x = true;
+				int mirrorModX = static_cast<int>(cameraX+bgLayer->startCameraPos.x) % static_cast<int>(bgLayer->mirrorOffset.x);
+				int mirrorDivX = static_cast<int>(cameraX+bgLayer->startCameraPos.x) / static_cast<int>(bgLayer->mirrorOffset.x);
+				if(bgLayer->startCameraPos.x < 0 && mirrorModX>=0){
+					mirrorDivX+=1;
+				}
+				else if(bgLayer->startCameraPos.x >= 0 && mirrorModX < 0){
+					mirrorDivX-=1;
+				}
+				if (mirrorModX<0) mirrorModX += bgLayer->mirrorOffset.x;
+				mirrorPos.x = mirrorDivX;
+				mirrorDelta.x = mirrorModX;
+				if(mirrorModX + this->screenSize.x > bgLayer->mirrorOffset.x) mirrorActiveX.y = true;
+			}
+			if(bgLayer->mirrorOffset.y != 0.f){
+				mirrorActiveY.x = true;
+				int mirrorModY = static_cast<int>(cameraY+bgLayer->startCameraPos.y) % static_cast<int>(bgLayer->mirrorOffset.y);
+				int mirrorDivY = static_cast<int>(cameraY+bgLayer->startCameraPos.y) / static_cast<int>(bgLayer->mirrorOffset.y);
+				if(bgLayer->startCameraPos.y < 0 && mirrorModY>=0){
+					mirrorDivY+=1;
+				}
+				else if(bgLayer->startCameraPos.y >= 0 && mirrorModY < 0){
+					mirrorDivY-=1;
+				}
+				if (mirrorModY<0) mirrorModY += bgLayer->mirrorOffset.y;
+				mirrorPos.y = mirrorDivY;
+				mirrorDelta.y = mirrorModY;
+				if(mirrorModY + this->screenSize.y > bgLayer->mirrorOffset.y) mirrorActiveY.y = true;
+			}
+		}
+		else{
+			UILayer* uiLayer = static_cast<UILayer*>(parentLayer);
+			finalPerspectiveM = glm::ortho(0.0f, static_cast<float>(Settings::ins().defaultGameWidth), 0.0f, static_cast<float>(Settings::ins().defaultGameHeight), 0.0f, 2.0f);
+		}
+		finalViewM = glm::lookAt(glm::vec3(cameraX, cameraY, 1.0f), glm::vec3(cameraX, cameraY, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	}
+
+	//mirroring setup
+	if(mirrorActiveX.x){
+		this->curTransform = glm::translate(this->curTransform, {mirrorPos.x, 0.f, 0.f});
+	}
+	if(mirrorActiveY.x){
+		this->curTransform = glm::translate(this->curTransform, {0.f, mirrorPos.y, 0.f});
+	}
+	glm::mat4 mirrorTransform = this->curTransform;
+
+	//drawing
+	this->curTransform = finalPerspectiveM*finalViewM*this->curTransform;
+	glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(this->curTransform));
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	//mirror drawing
+	if(mirrorActiveX.y){
+		this->curTransform = glm::translate(mirrorTransform, {1.f, 0.f, 0.f});
+		this->curTransform = finalPerspectiveM*finalViewM*this->curTransform;
+		glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(this->curTransform));
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	}
+	if(mirrorActiveY.y){
+		this->curTransform = glm::translate(mirrorTransform, {0.f, 1.f, 0.f});
+		this->curTransform = finalPerspectiveM*finalViewM*this->curTransform;
+		glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(this->curTransform));
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	}
+	if(mirrorActiveX.y && mirrorActiveY.y){
+		this->curTransform = glm::translate(mirrorTransform, {1.f, 1.f, 0.f});
+		this->curTransform = finalPerspectiveM*finalViewM*this->curTransform;
+		glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(this->curTransform));
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	}
+}
+
+void Renderer::renderSprites(const std::vector<Sprite*>& sprites){
+	for(int j = 0; j<sprites.size(); j++){
+		//checking if OpenGL context needs to be changed
+		if(j==0){
+			this->renderLeaf2dPart1(static_cast<Leaf2D*>(sprites[j]));
+
+			if(sprites[j]->texture != nullptr) glBindTexture(GL_TEXTURE_2D, sprites[j]->texture->ID);
+			else glBindTexture(GL_TEXTURE_2D, 0);
+
+			this->changeTexCoords(sprites[j]);
+		}
+		else{
+			this->renderLeaf2dPart1(static_cast<Leaf2D*>(sprites[j]), static_cast<Leaf2D*>(sprites[j-1]));
+
+			if(sprites[j]->texture != sprites[j-1]->texture){
+				if(sprites[j]->texture != nullptr) glBindTexture(GL_TEXTURE_2D, sprites[j]->texture->ID);
+				else glBindTexture(GL_TEXTURE_2D, 0);
+			}
+
+			this->changeTexCoords(sprites[j], sprites[j-1]);
+		}
+		
+		//calculating Sprite properties
+		if(!sprites[j]->centered && sprites[j]->texture != nullptr){
+			this->curTransform = glm::translate(this->curTransform, glm::vec3(static_cast<float>(sprites[j]->texture->width/2), static_cast<float>(sprites[j]->texture->height/2), 0.0f));
+		}
+		if(sprites[j]->flipH){
+			this->curTransform = glm::scale(this->curTransform, glm::vec3(-1.0f, 1.0f, 1.0f));
+		}
+		if(sprites[j]->flipV){
+			this->curTransform = glm::scale(this->curTransform, glm::vec3(1.0f, -1.0f, 1.0f));
+		}
+		//scaling to texture size
+		if(sprites[j]->texture != nullptr) this->curTransform = glm::scale(this->curTransform, glm::vec3(sprites[j]->texture->width/sprites[j]->sheetColumns, sprites[j]->texture->height/sprites[j]->sheetRows, 1.0));
+
+		//calculating Leaf2D properties part 2 and drawing
+		this->renderLeaf2dPart2(static_cast<Leaf2D*>(sprites[j]));
+	}
+}
+
+void Renderer::renderColorRects(const std::vector<ColorRect*>& colorRects){
+	glUniform1i(glGetUniformLocation(this->curShaderID, "colorOnly"), true);
+	for(int j = 0; j<colorRects.size(); j++){
+		if(j==0){
+			this->renderLeaf2dPart1(static_cast<Leaf2D*>(colorRects[j]), nullptr, glm::vec4(colorRects[j]->color, 1.f));
+		}
+		else{
+			this->renderLeaf2dPart1(static_cast<Leaf2D*>(colorRects[j]), static_cast<Leaf2D*>(colorRects[j-1]), glm::vec4(colorRects[j]->color, 1.f));
+		}
+
+		this->curTransform = glm::scale(this->curTransform, glm::vec3(colorRects[j]->width, colorRects[j]->height, 1.0));
+
+		this->renderLeaf2dPart2(static_cast<ColorRect*>(colorRects[j]));
+	}
+	glUniform1i(glGetUniformLocation(this->curShaderID, "colorOnly"), false);
 }

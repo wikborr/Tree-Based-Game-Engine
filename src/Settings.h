@@ -1,16 +1,6 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <iostream>
-
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include "servers/FileReader.h"
+#include "Utility.h"
 
 //does stretching window change the orthogonal matrix?
 enum StretchMode{ 
@@ -32,6 +22,8 @@ public:
 	bool fullscreen= false;
 	int screenPosX = 0;
 	int screenPosY = 0;
+	int defaultGameWidth = 854;
+	int defaultGameHeight = 480;
 	int game_width = 854;
 	int game_height = 480;
 	int screen_width = 854;
@@ -42,6 +34,8 @@ public:
 	glm::vec3 bg_color = glm::vec3(0.0f, 0.33f, 0.33f);
 	GLFWimage icon[1];
 
+	int limitFPS = 0;
+
 	StretchMode stretchMode = STRETCH_MODE_CHANGE;
 
 	//methods
@@ -50,6 +44,7 @@ public:
 	int initGLAD();
 
 	void goFullscreen(); //goes into or exits the fullscreen
+	void closeGame();
 	
 	//callback functions
 	void framebuffer_size_callback(GLFWwindow* window, int width, int height);

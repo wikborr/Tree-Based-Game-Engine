@@ -45,4 +45,14 @@ public:
 	virtual ~Leaf();
 	Leaf* getChild(std::string name);
 	std::vector<Leaf*> getAllChildren();
+	Leaf* getRoot();
+
+	template <typename T>
+	T* getChild(std::string name){
+		return static_cast<T*>(getChild(name));
+	}
+	template <typename T>
+	T* getParent(){
+		return static_cast<T*>(this->parent);
+	}
 };

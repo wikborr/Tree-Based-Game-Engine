@@ -31,15 +31,20 @@ std::string Settings::generateSettings(std::string project_dir){
 			this->main_grass = line.substr(property.length());
 		}
 		else if(line.find(property = "screen_width: ") != std::string::npos){
+			this->defaultGameWidth = std::stoi(line.substr(property.length()));
 			this->screen_width = std::stoi(line.substr(property.length()));
 			this->game_width = std::stoi(line.substr(property.length()));
 		}
 		else if(line.find(property = "screen_height: ") != std::string::npos){
+			this->defaultGameHeight = std::stoi(line.substr(property.length()));
 			this->screen_height = std::stoi(line.substr(property.length()));
 			this->game_height = std::stoi(line.substr(property.length()));
 		}
 		else if(line.find(property = "fullscreen: ") != std::string::npos){
 			this->fullscreen = (line.substr(property.length()) == "0") ? false : true;
+		}
+		else if(line.find(property = "limitFPS: ") != std::string::npos){
+			this->limitFPS = std::stoi(line.substr(property.length()));
 		}
 	}
 	if(this->main_grass == ""){
@@ -87,6 +92,9 @@ void Settings::goFullscreen(){
 		glfwGetWindowPos(this->main_window, &this->screenPosX, &this->screenPosY);
 		glfwSetWindowMonitor(this->main_window, glfwGetPrimaryMonitor(), 0, 0, mode->width, mode->height, mode->refreshRate);
 	}
+}
+void Settings::closeGame(){
+	glfwSetWindowShouldClose(this->main_window, true);
 }
 
 //callbacks

@@ -6,7 +6,9 @@
 //leaf for texture rendering
 class Sprite: public Leaf2D{
 public:
-	std::string name = "Sprite";
+	Sprite(Leaf* parent = nullptr);
+	virtual ~Sprite();
+	virtual std::string leafOperation();
 
 	//properties
 	bool centered = true;
@@ -19,10 +21,4 @@ public:
 	unsigned sheetColumns = 1;
 
 	Texture* texture = nullptr;
-
-	//methods
-	virtual std::string leafOperation();
-
-	Sprite(Leaf* parent = nullptr);
-	virtual ~Sprite();
 };

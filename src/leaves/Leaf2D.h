@@ -6,7 +6,10 @@
 //base class for game objects on screen
 class Leaf2D: public Leaf{
 public:
-	std::string name = "Leaf2D";
+	Leaf2D(Leaf* parent = nullptr);
+	virtual ~Leaf2D();
+	virtual std::string leafOperation();
+	virtual LeafType getLeafType();
 	
 	//global attributes
 	glm::vec2 globalPosition = glm::vec2(0.0);
@@ -23,12 +26,5 @@ public:
 	glm::vec4 modulate = glm::vec4(1.0);
 	glm::vec4 selfModulate = glm::vec4(1.0);
 	Shader* leafShader = nullptr;
-
-	//methods
-	virtual std::string leafOperation();
-	virtual LeafType getLeafType();
-
-	Leaf2D(Leaf* parent = nullptr);
-	virtual ~Leaf2D();
 
 };

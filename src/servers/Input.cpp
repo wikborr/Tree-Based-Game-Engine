@@ -313,7 +313,9 @@ void Input::scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
 }
 void Input::window_focus_callback(GLFWwindow* window, int focused){
 	if(focused){
-		this->prevMousePos = glm::vec2(0.0f, 0.0f);
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+		this->prevMousePos = glm::vec2(xpos, ypos);
 		this->windowFocused = true;
 	}
 	else{

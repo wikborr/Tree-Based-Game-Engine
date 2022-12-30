@@ -1,5 +1,7 @@
 #include "leaves/Leaf2D.h"
 #include "servers/ResourceManager.h"
+#include "leaves/UILayer.h"
+#include "leaves/BGLayer.h"
 #include <stack>
 
 LeafType Leaf2D::getLeafType(){
@@ -27,19 +29,15 @@ Leaf2D::~Leaf2D(){
 }
 
 std::string Leaf2D::leafOperation(){
-	std::stack<Leaf2D*> leafStack;
+	Leaf::leafOperation();
 	Leaf* nextLeaf = this->parent;
-	while(nextLeaf != nullptr && nextLeaf->getLeafType() == LEAF_TYPE_2D){
-		leafStack.push(static_cast<Leaf2D*>(nextLeaf));
-		nextLeaf = leafStack.top()->parent;
+	while(nextLeaf != nullptr && nextLeaf->getLeafType() != LEAF_TYPE_2D){
+		nextLeaf = nextLeaf->parent;
 	}
 	glm::mat4 transform = glm::mat4(1.0f);
-	while(leafStack.size()>0){
-		transform = glm::translate(transform, glm::vec3(leafStack.top()->position, 0.0f));
-		transform = glm::rotate(transform, glm::radians(leafStack.top()->rotationDegrees), glm::vec3(0.0f, 0.0f, 1.0f));
-		transform = glm::scale(transform, glm::vec3(leafStack.top()->scale, 1.0));
-		transform *= leafStack.top()->transform;
-		leafStack.pop();
+	if(nextLeaf != nullptr){
+		transform = static_cast<Leaf2D*>(nextLeaf)->globalTransform;
+		this->modulate = static_cast<Leaf2D*>(nextLeaf)->modulate;
 	}
 	this->globalPosition = transform * glm::vec4(this->position, 0.0f, 1.0f);
 

@@ -1,6 +1,5 @@
 #include "leaves/leaves2D/Sprite.h"
 #include "servers/ResourceManager.h"
-#include "servers/Renderer.h"
 
 Sprite::Sprite(Leaf* parent){
 	this->name = "Sprite";
