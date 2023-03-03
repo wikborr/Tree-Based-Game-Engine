@@ -1,0 +1,25 @@
+Enemy: enemy
+	CollisionShape2D: collisionShape1
+	- rectangleShape2D: 300 200
+	- position: -50 -100
+	Sprite: sprite1
+	- scale: 4 4
+	- texture: assets/sprites/rat.png
+	- modulate: 1.0 1.0 1.0 1.0
+	- sheetRows: 1
+	- sheetColumns: 2
+	ParticleEmitter: particles1
+	- position: -50 -100
+	- texture: assets/sprites/particle.png
+	- scale: 0.1 0.1
+	Timer: timer1
+	- oneShot: 0
+	- waitTime: 0.1
+	Timer: timer2
+	- oneShot: 1
+	- waitTime: 1
+	Tween: tween1
+	Tween: tweenG
+	Tween: tweenB
+	Tween: tweenG2
+	Tween: tweenB2

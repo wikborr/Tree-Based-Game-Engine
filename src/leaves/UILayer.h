@@ -6,7 +6,7 @@
 class UILayer: public Leaf{
 public:
 	UILayer(Leaf* parent = nullptr);
-	virtual std::string leafOperation();
+	virtual std::string leafOperation() override;
 
 	int layer = 1;
 	bool visible = true;

@@ -12,5 +12,5 @@ public:
 	int height = 0;
 
 	Texture();
-	void setTexture(unsigned char* data, unsigned filter = GL_LINEAR, unsigned format = GL_RGBA);
+	void setTexture(unsigned char* data, unsigned filter = GL_LINEAR, unsigned format = GL_RGBA, unsigned format2 = GL_RGBA);
 };

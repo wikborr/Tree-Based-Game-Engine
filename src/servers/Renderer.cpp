@@ -1,13 +1,13 @@
 #include "servers/Renderer.h"
 
-#include "Settings.h"
 #include "servers/ResourceManager.h"
 #include "leaves/UILayer.h"
 #include "leaves/BGLayer.h"
 #include "leaves/leaves2D/Camera2D.h"
 #include "leaves/leaves2D/Sprite.h"
 #include "leaves/leaves2D/ColorRect.h"
-#include <algorithm>
+
+const float TEX_COORD_PIXEL_FIX = 0.5;
 
 Renderer& Renderer::ins(){
 	static Renderer instance;
@@ -30,6 +30,13 @@ std::string Renderer::init2D(){
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glfwSwapBuffers(Settings::ins().main_window);
+
+	//enable blending
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	//for font
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); 
 
 	//vertex buffer object data
 	float positions[] = { 
@@ -63,6 +70,9 @@ std::string Renderer::init2D(){
 
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
+
+	//creating texVBO2
+	glGenBuffers(1, &this->texVBO2);
 	
 	//unbinding
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -92,8 +102,10 @@ std::string Renderer::render2D(){
 
 	std::vector<Leaf*> leaves = this->leafTree->getAllLeaves();
 	for(const auto &i: leaves){
-		if(i->propPointers.count("texture") > 0) renderables.push_back({"Sprite",static_cast<Leaf2D*>(i)});
+		if(i->propPointers.count("texture") > 0 && i->propPointers.count("centered") > 0) renderables.push_back({"Sprite",static_cast<Leaf2D*>(i)});
 		else if(i->propPointers.count("color") > 0 && i->propPointers.count("width") > 0) renderables.push_back({"ColorRect",static_cast<Leaf2D*>(i)});
+		else if(i->propPointers.count("tileset") > 0) renderables.push_back({"TileMap",static_cast<Leaf2D*>(i)});
+		else if(i->propPointers.count("text") > 0) renderables.push_back({"TextLabel",static_cast<Leaf2D*>(i)});
 	}
 
 	//default camera
@@ -190,6 +202,21 @@ std::string Renderer::render2D(){
 		else if(i.first == "ColorRect"){
 			this->renderColorRects(utils::vector2vector<ColorRect*, Leaf2D*>(i.second));
 		}
+		else if(i.first == "TileMap"){
+			this->renderTileMaps(utils::vector2vector<TileMap*, Leaf2D*>(i.second));
+		}
+		else if(i.first == "TextLabel"){
+			this->renderTextLabels(utils::vector2vector<TextLabel*, Leaf2D*>(i.second));
+		}
+	}
+
+	//for debugging collision
+	if(Settings::ins().debugCollision){
+		std::vector<CollisionShape2D*> collisionShapes;
+		for(const auto &i: leaves){
+			if(i->propPointers.count("oneWayCollision") > 0) collisionShapes.push_back(static_cast<CollisionShape2D*>(i));
+		}
+		this->renderCollisionShapes(collisionShapes);
 	}
 
 	//buffer swap
@@ -198,30 +225,47 @@ std::string Renderer::render2D(){
 	return "";
 }
 
-void Renderer::changeTexCoords(Sprite* sprite, Sprite* prev_sprite){
-	bool ifBool = false;
-	if(prev_sprite == nullptr) ifBool = sprite->sheetFrame != 0 || sprite->sheetColumns != 1 || sprite->sheetRows != 1;
-	else ifBool = sprite->sheetFrame != prev_sprite->sheetFrame || sprite->sheetColumns != prev_sprite->sheetColumns || sprite->sheetRows != prev_sprite->sheetRows;
+void Renderer::changeTexCoords(SpriteSheet sprite, SpriteSheet prev_sprite){
+	bool ifBool = true;
+	if(prev_sprite.sheetColumns != 0) ifBool = sprite.sheetFrame != prev_sprite.sheetFrame || sprite.sheetColumns != prev_sprite.sheetColumns || sprite.sheetRows != prev_sprite.sheetRows;
 
 	if(ifBool){
-		float posx1 = (1.0f/sprite->sheetColumns)*((sprite->sheetFrame)%(sprite->sheetColumns));
-		float posx2 = posx1 + (1.0f/sprite->sheetColumns);
-		float posy1 = 1.0f - ((1.0f/sprite->sheetRows)*((sprite->sheetFrame)/(sprite->sheetColumns)));
-		float posy2 = posy1 - (1.0f/sprite->sheetRows);
+		double stepX = 1.0/sprite.sheetColumns;
+		double stepY = 1.0/sprite.sheetRows;
+		double posx1 = stepX*((sprite.sheetFrame)%(sprite.sheetColumns));
+		double posx2 = posx1 + stepX;
+		double posy1 = 1.0 - (stepY*((sprite.sheetFrame)/(sprite.sheetColumns)));
+		double posy2 = posy1 - stepY;
+		posx1+=(1.0/sprite.sheetSize.x)*TEX_COORD_PIXEL_FIX;
+		posx2-=(1.0/sprite.sheetSize.x)*TEX_COORD_PIXEL_FIX;
+		posy1-=(1.0/sprite.sheetSize.y)*TEX_COORD_PIXEL_FIX;
+		posy2+=(1.0/sprite.sheetSize.y)*TEX_COORD_PIXEL_FIX;
 		float texCoords[] = { 
-			posx1, posy2,
-			posx2, posy2,
-			posx1, posy1,
-			posx2, posy1, 
+			static_cast<float>(posx1), static_cast<float>(posy2),
+			static_cast<float>(posx2), static_cast<float>(posy2),
+			static_cast<float>(posx1), static_cast<float>(posy1),
+			static_cast<float>(posx2), static_cast<float>(posy1), 
 		};
-		unsigned texVBO = 0;
-		glGenBuffers(1, &texVBO);
-		glBindBuffer(GL_ARRAY_BUFFER, texVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, this->texVBO2);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(texCoords), texCoords, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
+}
+
+void Renderer::resetTexCoords(){
+	float texCoords[] = { 
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+		0.0f, 1.0f,
+        1.0f, 1.0f, 
+    };
+	glBindBuffer(GL_ARRAY_BUFFER, this->texVBO2);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(texCoords), texCoords, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 std::vector<std::pair<std::string, Leaf2D*>> Renderer::vector2ZIndices(const std::vector<std::pair<std::string, Leaf2D*>>& tVector){
@@ -324,7 +368,7 @@ void Renderer::renderLeaf2dPart1(Leaf2D* renderable, Leaf2D* prevRenderable, glm
 	}
 }
 
-void Renderer::renderLeaf2dPart2(Leaf2D* renderable){
+void Renderer::renderLeaf2dPart2(Leaf2D* renderable, bool multiple){
 	glm::mat4 finalViewM = this->viewM;
 	glm::mat4 finalPerspectiveM = this->perspectiveM;
 	glm::vec2 mirrorActiveX = glm::vec2(false);
@@ -398,28 +442,104 @@ void Renderer::renderLeaf2dPart2(Leaf2D* renderable){
 	glm::mat4 mirrorTransform = this->curTransform;
 
 	//drawing
-	this->curTransform = finalPerspectiveM*finalViewM*this->curTransform;
-	glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(this->curTransform));
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	if(!multiple) this->finalRender(finalPerspectiveM, finalViewM);
+	else this->finalRender(finalPerspectiveM, finalViewM, renderable);
 
 	//mirror drawing
 	if(mirrorActiveX.y){
 		this->curTransform = glm::translate(mirrorTransform, {1.f, 0.f, 0.f});
-		this->curTransform = finalPerspectiveM*finalViewM*this->curTransform;
-		glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(this->curTransform));
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		if(!multiple) this->finalRender(finalPerspectiveM, finalViewM);
+		else this->finalRender(finalPerspectiveM, finalViewM, renderable);
 	}
 	if(mirrorActiveY.y){
 		this->curTransform = glm::translate(mirrorTransform, {0.f, 1.f, 0.f});
+		if(!multiple) this->finalRender(finalPerspectiveM, finalViewM);
+		else this->finalRender(finalPerspectiveM, finalViewM, renderable);
+	}
+	if(mirrorActiveX.y && mirrorActiveY.y){
+		this->curTransform = glm::translate(mirrorTransform, {1.f, 1.f, 0.f});
+		if(!multiple) this->finalRender(finalPerspectiveM, finalViewM);
+		else this->finalRender(finalPerspectiveM, finalViewM, renderable);
+	}
+}
+
+void Renderer::finalRender(glm::mat4 finalPerspectiveM, glm::mat4 finalViewM, Leaf2D* multipleLeaf){
+	if(multipleLeaf == nullptr){
 		this->curTransform = finalPerspectiveM*finalViewM*this->curTransform;
 		glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(this->curTransform));
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	}
-	if(mirrorActiveX.y && mirrorActiveY.y){
-		this->curTransform = glm::translate(mirrorTransform, {1.f, 1.f, 0.f});
-		this->curTransform = finalPerspectiveM*finalViewM*this->curTransform;
-		glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(this->curTransform));
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	else if(multipleLeaf->propPointers.count("tileset") > 0){
+		TileMap* tilemap = static_cast<TileMap*>(multipleLeaf);
+		if(tilemap->texture == nullptr) return;
+		SpriteSheet sheet;
+		sheet.sheetRows = tilemap->tileset->sheetRows;
+		sheet.sheetColumns = tilemap->tileset->sheetColumns;
+		sheet.sheetSize = glm::ivec2(tilemap->texture->width, tilemap->texture->height);
+		glm::vec2 offset = glm::vec2(tilemap->texture->width / tilemap->tileset->sheetColumns, tilemap->texture->height / tilemap->tileset->sheetRows);
+		for(int i = 0; i < tilemap->tilePositions.size(); i++){
+			for(int j = 0; j < tilemap->tilePositions.at(i).size(); j++){
+				if(tilemap->tilePositions.at(i).at(j) < 0) continue;
+				if(i == 0 && j == 0){
+					sheet.sheetFrame = tilemap->tilePositions.at(i).at(j);
+					this->changeTexCoords(sheet);
+				}
+				else{
+					SpriteSheet sheet2;
+					sheet2.sheetRows = sheet.sheetRows;
+					sheet2.sheetColumns = sheet.sheetColumns;
+					sheet2.sheetFrame = tilemap->tilePositions.at(i).at(j);
+					sheet2.sheetSize = glm::ivec2(tilemap->texture->width, tilemap->texture->height);
+					this->changeTexCoords(sheet2, sheet);
+					sheet.sheetFrame = sheet2.sheetFrame;
+				}
+				glm::mat4 tileTransform = glm::translate(this->curTransform, glm::vec3(j,i,0.f));
+				tileTransform = finalPerspectiveM*finalViewM*tileTransform;
+				glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(tileTransform));
+				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+			}
+		}
+		this->resetTexCoords();
+	}
+	else if(multipleLeaf->propPointers.count("text") > 0){
+		TextLabel* textLabel = static_cast<TextLabel*>(multipleLeaf);
+		if(textLabel->stringTextures.size() > 0){
+			std::vector<std::vector<Character*>> finalChars;
+			size_t charsVisible = glm::min(static_cast<size_t>(textLabel->stringTextures.size()*textLabel->percentVisible), textLabel->stringTextures.size());
+			std::vector<Character*> finalCharsPart;
+			unsigned advanceY = 0u;
+			for(int i = 0; i < charsVisible; i++){
+				if(textLabel->stringTextures.at(i)->texture != nullptr){
+					finalCharsPart.push_back(textLabel->stringTextures.at(i));
+				}
+				else if(textLabel->stringTextures.at(i)->advance > 0u){
+					if(advanceY == 0) advanceY = textLabel->textSize + textLabel->textSize/textLabel->stringTextures.at(i)->advance;
+					finalChars.push_back(finalCharsPart);
+					finalCharsPart.clear();
+				}
+			}
+			if(finalCharsPart.size() > 0){
+				finalChars.push_back(finalCharsPart);
+			}
+
+			for(int i = 0; i < finalChars.size(); i++){
+				unsigned advanceX = 0u;
+				for(int j = 0; j < finalChars.at(i).size(); j++){
+					glBindTexture(GL_TEXTURE_2D, finalChars.at(i).at(j)->texture->ID);
+					glm::mat4 charTransform = this->curTransform;
+					charTransform = glm::scale(charTransform, glm::vec3(finalChars.at(i).at(j)->size, 0.f));
+					charTransform = glm::translate(charTransform, glm::vec3(
+						finalChars.at(i).at(j)->bearing.x + advanceX,
+						finalChars.at(i).at(j)->bearing.y + advanceY*i, 
+						0.f
+					));
+					advanceX += (finalChars.at(i).at(j)->advance) >> 6;
+					charTransform = finalPerspectiveM*finalViewM*charTransform;
+					glUniformMatrix4fv(glGetUniformLocation(this->curShaderID, "transformation"), 1, GL_FALSE, glm::value_ptr(charTransform));
+					glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				}
+			}
+		}
 	}
 }
 
@@ -432,7 +552,14 @@ void Renderer::renderSprites(const std::vector<Sprite*>& sprites){
 			if(sprites[j]->texture != nullptr) glBindTexture(GL_TEXTURE_2D, sprites[j]->texture->ID);
 			else glBindTexture(GL_TEXTURE_2D, 0);
 
-			this->changeTexCoords(sprites[j]);
+			if(sprites[j]->texture != nullptr){
+				SpriteSheet sheet;
+				sheet.sheetFrame = sprites[j]->sheetFrame;
+				sheet.sheetRows = sprites[j]->sheetRows;
+				sheet.sheetColumns = sprites[j]->sheetColumns;
+				sheet.sheetSize = glm::ivec2(sprites[j]->texture->width, sprites[j]->texture->height);
+				this->changeTexCoords(sheet);
+			}
 		}
 		else{
 			this->renderLeaf2dPart1(static_cast<Leaf2D*>(sprites[j]), static_cast<Leaf2D*>(sprites[j-1]));
@@ -441,8 +568,19 @@ void Renderer::renderSprites(const std::vector<Sprite*>& sprites){
 				if(sprites[j]->texture != nullptr) glBindTexture(GL_TEXTURE_2D, sprites[j]->texture->ID);
 				else glBindTexture(GL_TEXTURE_2D, 0);
 			}
-
-			this->changeTexCoords(sprites[j], sprites[j-1]);
+			if(sprites[j]->texture != nullptr && sprites[j-1]->texture != nullptr){
+				SpriteSheet sheet1;
+				sheet1.sheetFrame = sprites[j]->sheetFrame;
+				sheet1.sheetRows = sprites[j]->sheetRows;
+				sheet1.sheetColumns = sprites[j]->sheetColumns;
+				sheet1.sheetSize = glm::ivec2(sprites[j]->texture->width, sprites[j]->texture->height);
+				SpriteSheet sheet2;
+				sheet2.sheetFrame = sprites[j-1]->sheetFrame;
+				sheet2.sheetRows = sprites[j-1]->sheetRows;
+				sheet2.sheetColumns = sprites[j-1]->sheetColumns;
+				sheet2.sheetSize = glm::ivec2(sprites[j-1]->texture->width, sprites[j-1]->texture->height);
+				this->changeTexCoords(sheet1, sheet2);
+			}
 		}
 		
 		//calculating Sprite properties
@@ -475,7 +613,81 @@ void Renderer::renderColorRects(const std::vector<ColorRect*>& colorRects){
 
 		this->curTransform = glm::scale(this->curTransform, glm::vec3(colorRects[j]->width, colorRects[j]->height, 1.0));
 
-		this->renderLeaf2dPart2(static_cast<ColorRect*>(colorRects[j]));
+		this->renderLeaf2dPart2(static_cast<Leaf2D*>(colorRects[j]));
 	}
+	glUniform1i(glGetUniformLocation(this->curShaderID, "colorOnly"), false);
+}
+
+void Renderer::renderTileMaps(const std::vector<TileMap*>& tilemaps){
+	for(int j = 0; j<tilemaps.size(); j++){
+		if(!tilemaps[j]->tilePositions.empty() && tilemaps[j]->tileset != nullptr){
+			if(j==0){
+				this->renderLeaf2dPart1(static_cast<Leaf2D*>(tilemaps[j]));
+
+				if(tilemaps[j]->texture != nullptr) glBindTexture(GL_TEXTURE_2D, tilemaps[j]->texture->ID);
+				else glBindTexture(GL_TEXTURE_2D, 0);
+			}
+			else{
+				this->renderLeaf2dPart1(static_cast<Leaf2D*>(tilemaps[j]), static_cast<Leaf2D*>(tilemaps[j-1]));
+
+				if(tilemaps[j]->texture != tilemaps[j-1]->texture){
+					if(tilemaps[j]->texture != nullptr) glBindTexture(GL_TEXTURE_2D, tilemaps[j]->texture->ID);
+					else glBindTexture(GL_TEXTURE_2D, 0);
+				}
+			}
+			
+			//scaling to texture size
+			if(tilemaps[j]->texture != nullptr && tilemaps[j]->tileset != nullptr) this->curTransform = glm::scale(this->curTransform, glm::vec3(tilemaps[j]->texture->width/tilemaps[j]->tileset->sheetColumns, tilemaps[j]->texture->height/tilemaps[j]->tileset->sheetRows, 1.0));
+
+			this->renderLeaf2dPart2(static_cast<Leaf2D*>(tilemaps[j]), true);
+		}
+	}
+}
+
+void Renderer::renderTextLabels(const std::vector<TextLabel*>& textLabels){
+	glUniform1i(glGetUniformLocation(this->curShaderID, "isText"), true);
+	for(int j = 0; j<textLabels.size(); j++){
+		if(textLabels[j]->text != "" && textLabels[j]->font != nullptr){
+			if(j==0){
+				this->renderLeaf2dPart1(static_cast<Leaf2D*>(textLabels[j]), nullptr, glm::vec4(static_cast<TextLabel*>(textLabels[j])->color, 1.f));
+			}
+			else{
+				this->renderLeaf2dPart1(static_cast<Leaf2D*>(textLabels[j]), static_cast<Leaf2D*>(textLabels[j-1]), glm::vec4(static_cast<TextLabel*>(textLabels[j])->color, 1.f));
+			}
+			glUniform1ui(glGetUniformLocation(this->curShaderID, "textOutline"), static_cast<TextLabel*>(textLabels[j])->outline);
+			glUniform3f(glGetUniformLocation(
+				this->curShaderID, "textOutlineColor"), 
+				static_cast<TextLabel*>(textLabels[j])->outLineColor.r,
+				static_cast<TextLabel*>(textLabels[j])->outLineColor.g,
+				static_cast<TextLabel*>(textLabels[j])->outLineColor.b
+			);
+			this->renderLeaf2dPart2(static_cast<Leaf2D*>(textLabels[j]), true);
+		}
+	}
+	glUniform1i(glGetUniformLocation(this->curShaderID, "isText"), false);
+}
+
+void Renderer::renderCollisionShapes(const std::vector<CollisionShape2D*>& collisionShapes){
+	glUniform1i(glGetUniformLocation(this->curShaderID, "colorOnly"), true);
+	for(int j = 0; j<collisionShapes.size(); j++){
+		if(collisionShapes[j]->shape == nullptr || collisionShapes[j]->disabled) continue;
+
+		if(j==0){
+			this->renderLeaf2dPart1(static_cast<Leaf2D*>(collisionShapes[j]), nullptr, glm::vec4(0.1f, 0.6f, 1.f, 0.5f));
+		}
+		else{
+			this->renderLeaf2dPart1(static_cast<Leaf2D*>(collisionShapes[j]), static_cast<Leaf2D*>(collisionShapes[j-1]), glm::vec4(0.1f, 0.6f, 1.f, 0.5f));
+		}
+
+		glm::vec2 shapeSize;
+		std::vector<glm::vec2> shapePoints = collisionShapes[j]->shape->toPoints(collisionShapes[j]->globalTransform);
+		if(shapePoints.size() != 4) continue;
+		shapeSize = collisionShapes[j]->shape->baseSize();
+
+		this->curTransform = glm::scale(this->curTransform, glm::vec3(shapeSize.x, shapeSize.y, 1.0));
+
+		this->renderLeaf2dPart2(static_cast<Leaf2D*>(collisionShapes[j]));
+	}
+	glUniform1f(glGetUniformLocation(this->curShaderID, "circleRadius"), 0.f);
 	glUniform1i(glGetUniformLocation(this->curShaderID, "colorOnly"), false);
 }

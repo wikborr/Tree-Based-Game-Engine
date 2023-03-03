@@ -1,8 +1,5 @@
 #include "Settings.h"
-
-#include <sstream>
 #include "servers/Renderer.h"
-#include <stb_image.h>
 
 //make utils class and move it there
 void print(std::string line){
@@ -46,6 +43,12 @@ std::string Settings::generateSettings(std::string project_dir){
 		else if(line.find(property = "limitFPS: ") != std::string::npos){
 			this->limitFPS = std::stoi(line.substr(property.length()));
 		}
+		else if(line.find(property = "debugCollision: ") != std::string::npos){
+			this->debugCollision = (line.substr(property.length()) == "0") ? false : true;
+		}
+		else if(line.find(property = "pixelSnap: ") != std::string::npos){
+			this->pixelSnap = (line.substr(property.length()) == "0") ? false : true;
+		}
 	}
 	if(this->main_grass == ""){
 		return project_dir+": main_grass not specified.";
@@ -76,8 +79,6 @@ int Settings::initGLAD(){
 	glfwSetFramebufferSizeCallback(this->main_window, [](GLFWwindow* window, int width, int height)->void{
 		Settings::ins().framebuffer_size_callback(window, width, height);
 	});
-	glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	return 0;
 }
 

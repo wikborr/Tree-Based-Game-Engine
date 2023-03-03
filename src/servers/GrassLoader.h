@@ -1,8 +1,6 @@
 #pragma once
 
 #include "Leaf.h"
-#include <map>
-#include <functional>
 
 //server singleton for converting grass to a leaf tree
 class GrassLoader{

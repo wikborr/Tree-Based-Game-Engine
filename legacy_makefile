@@ -1,0 +1,20 @@
+OBJS = *.cpp src/*.cpp src/servers/*.cpp src/resources/*.cpp src/resources/shapes2D/*.cpp src/leaves/*.cpp src/leaves/leaves2D/*.cpp deps/*.c deps/*.cpp project/prj_src/*.cpp project/res.res
+
+CC = g++
+
+INCLUDE_PATHS = -I./deps/include -I./src  -I./project/prj_src
+
+LIBRARY_PATHS = -L./deps/lib
+
+# -w - warning supression
+# -Wl,-subsystem,windows - no console window
+# -g - debug
+# -O0 - optimization (0 - debug, 3 - release)
+COMPILER_FLAGS = -g -O0
+
+LINKER_FLAGS = -lglfw3 -lgdi32 -lopengl32 -lfreetype
+
+OBJ_NAME = main
+
+all : $(OBJS)
+	$(CC) $(OBJS) $(INCLUDE_PATHS) $(LIBRARY_PATHS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -o $(OBJ_NAME)

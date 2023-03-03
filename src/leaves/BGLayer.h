@@ -6,7 +6,7 @@
 class BGLayer: public UILayer{
 public:
 	BGLayer(Leaf* parent = nullptr);
-	virtual std::string leafOperation();
+	virtual std::string leafOperation() override;
 
 	glm::vec2 startCameraPos = {0.f,0.f};
 	glm::vec2 mirrorOffset = {0.f,0.f};

@@ -2,7 +2,6 @@
 #include "servers/ResourceManager.h"
 #include "leaves/UILayer.h"
 #include "leaves/BGLayer.h"
-#include <stack>
 
 LeafType Leaf2D::getLeafType(){
 	return LEAF_TYPE_2D;
@@ -37,10 +36,13 @@ std::string Leaf2D::leafOperation(){
 	glm::mat4 transform = glm::mat4(1.0f);
 	if(nextLeaf != nullptr){
 		transform = static_cast<Leaf2D*>(nextLeaf)->globalTransform;
-		this->modulate = static_cast<Leaf2D*>(nextLeaf)->modulate;
+		this->modulate *= static_cast<Leaf2D*>(nextLeaf)->modulate;
 	}
-	this->globalPosition = transform * glm::vec4(this->position, 0.0f, 1.0f);
-
+	this->globalPosition = transform * glm::vec4(glm::round(this->position), 0.0f, 1.0f);
+	if(Settings::ins().pixelSnap){
+		this->globalPosition = glm::round(this->globalPosition);
+		this->position = glm::round(this->position);
+	}
 	transform = glm::translate(transform, glm::vec3(this->position, 0.0f));
 	transform = glm::rotate(transform, glm::radians(this->rotationDegrees), glm::vec3(0.0f, 0.0f, 1.0f));
 	transform = glm::scale(transform, glm::vec3(this->scale, 1.0));

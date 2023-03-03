@@ -8,8 +8,8 @@ class Leaf2D: public Leaf{
 public:
 	Leaf2D(Leaf* parent = nullptr);
 	virtual ~Leaf2D();
-	virtual std::string leafOperation();
-	virtual LeafType getLeafType();
+	virtual std::string leafOperation() override;
+	virtual LeafType getLeafType() override;
 	
 	//global attributes
 	glm::vec2 globalPosition = glm::vec2(0.0);

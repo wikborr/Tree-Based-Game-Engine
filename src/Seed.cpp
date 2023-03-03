@@ -1,9 +1,9 @@
-#include <Seed.h>
+#include "Seed.h"
 
-#include "Settings.h"
 #include "LeafTree.h"
 #include "servers/ResourceManager.h"
 #include "servers/Renderer.h"
+#include "servers/Physics2D.h"
 #include "servers/Input.h"
 
 //#include <chrono>
@@ -12,6 +12,9 @@
 
 std::string Seed::plant(std::string project_dir){
 	std::string error_message = "";
+
+	//pseudo random numbers seed
+	srand(time(0));
 
 	//GLFW initialization (window library)
 	glfwInit();
@@ -37,6 +40,14 @@ std::string Seed::plant(std::string project_dir){
 		glfwTerminate();
 		return "GLAD: initialization failed";
 	}
+
+	//Freetype library initialization (fonts)
+	FT_Library ft;
+	if (FT_Init_FreeType(&ft)){
+		return "FREETYPE: initialization failed";
+	}
+	Settings::ins().ftLibrary = ft;
+
 	//Leaf Tree initialization
 	LeafTree leafTree;
 	
@@ -45,6 +56,12 @@ std::string Seed::plant(std::string project_dir){
 
 	//Renderer initialization
 	error_message = Renderer::ins().init(&leafTree);
+	if(error_message != ""){
+		return error_message;
+	}
+
+	//Physics initialization
+	error_message = Physics2D::ins().init(&leafTree);
 	if(error_message != ""){
 		return error_message;
 	}
@@ -69,7 +86,7 @@ std::string Seed::plant(std::string project_dir){
 		if(Input::ins().checkIfInputEvent()){
 			leafTree.doInputEvents();
 		}
-
+		
 		//logic updates
 		error_message = leafTree.doLeafOperations();
 		if(error_message != ""){
@@ -91,7 +108,7 @@ std::string Seed::plant(std::string project_dir){
 
 		//fps limit
 		if(Settings::ins().limitFPS > 0){
-			int timeLeft = static_cast<int>((lastTime + (1.0/(Settings::ins().limitFPS+1)) - glfwGetTime())*1000000);
+			//int timeLeft = static_cast<int>((lastTime + (1.0/(Settings::ins().limitFPS+1)) - glfwGetTime())*1000000);
 			//if(timeLeft >= MIN_TIME_LEFT) std::this_thread::sleep_for(std::chrono::microseconds(timeLeft/2));
 			while (glfwGetTime() < lastTime + 1.0/(Settings::ins().limitFPS+1)) {}
 		}
@@ -99,13 +116,15 @@ std::string Seed::plant(std::string project_dir){
 
 	std::cout<<"--------------------------"<<std::endl;
 	//deallocation
+	glfwTerminate();
+	std::cout<<"GLFW deallocation complete"<<std::endl;
 	leafTree.~LeafTree();
 	std::cout<<"Leaf deallocation complete"<<std::endl;
 	ResourceManager::ins().~ResourceManager();
 	std::cout<<"Resource deallocation complete"<<std::endl;
+	//Freetype deallocation
+	FT_Done_FreeType(ft);
 	Renderer::ins().~Renderer();
 	std::cout<<"OpenGL deallocation complete"<<std::endl;
-	glfwTerminate();
-	std::cout<<"GLFW deallocation complete"<<std::endl;
 	return "";
 }

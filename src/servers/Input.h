@@ -1,7 +1,5 @@
 #pragma once
 
-#include <array>
-#include <map>
 #include "Settings.h"
 
 const int KEY_NUMBER = 512;

@@ -8,7 +8,7 @@ protected:
 	double lastTime = 0.0;
 public:
 	Camera2D(Leaf* parent = nullptr);
-	virtual std::string leafOperation();
+	virtual std::string leafOperation() override;
 
 	bool cameraReady = false;
 	glm::vec2 actualPosition = glm::vec2(0.f);

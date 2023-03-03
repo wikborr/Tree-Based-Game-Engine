@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Utility.h"
+#include "servers/FileReader.h"
 
 //does stretching window change the orthogonal matrix?
 enum StretchMode{ 
@@ -29,14 +29,16 @@ public:
 	int screen_width = 854;
 	int screen_height = 480;
 	std::string project_name = "Tree-Based Game Engine Test";
-	std::string project_dir = "projects/demo/";
+	std::string project_dir = "project/";
 	std::string main_grass = "";
 	glm::vec3 bg_color = glm::vec3(0.0f, 0.33f, 0.33f);
 	GLFWimage icon[1];
+	FT_Library ftLibrary;
 
 	int limitFPS = 0;
-
-	StretchMode stretchMode = STRETCH_MODE_CHANGE;
+	bool pixelSnap = false;
+	StretchMode stretchMode = STRETCH_MODE_NOCHANGE;
+	bool debugCollision = false;
 
 	//methods
 	std::string generateSettings(std::string project_dir);

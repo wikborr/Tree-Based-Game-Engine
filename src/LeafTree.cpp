@@ -31,12 +31,20 @@ void LeafTree::growGrass(std::string grassPath){
 }
 
 void LeafTree::changeGrass(std::string grassPath){
-	if(this->grassRoot != nullptr) delete this->grassRoot;
-	this->growGrass(this->grassPath);
+	if(this->grassRoot != nullptr){
+		delete this->grassRoot;
+		this->grassRoot = nullptr;
+	}
+	this->growGrass(grassPath);
 }
 
 void LeafTree::reloadGrass(){
-	this->changeGrass(this->grassPath);
+	std::string pureGrassPath = this->grassPath;
+	size_t ind = this->grassPath.find(Settings::ins().project_dir);
+    if(ind != std::string::npos){
+        pureGrassPath = this->grassPath.substr(Settings::ins().project_dir.size());
+    }
+	this->changeGrass(pureGrassPath);
 }
 
 std::string LeafTree::doLeafOperations(){

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <map>
-#include "Settings.h"
 #include "servers/Input.h"
 class LeafTree;
 
@@ -44,8 +42,11 @@ public:
 	Leaf(Leaf* parent = nullptr);
 	virtual ~Leaf();
 	Leaf* getChild(std::string name);
+	Leaf* getParent();
 	std::vector<Leaf*> getAllChildren();
 	Leaf* getRoot();
+	Leaf* removeChildFromTree(std::string name);
+	Leaf* removeChildFromTree(Leaf* leaf);
 
 	template <typename T>
 	T* getChild(std::string name){
@@ -54,5 +55,20 @@ public:
 	template <typename T>
 	T* getParent(){
 		return static_cast<T*>(this->parent);
+	}
+	template <typename T>
+	T* addChild(std::string name){
+		Leaf* newLeaf = new T;
+		newLeaf->parent = this;
+		this->children.push_back(newLeaf);
+		newLeaf->name = name;
+		return static_cast<T*>(newLeaf);
+	}
+	template <typename T>
+	T* addChild(T* leaf){
+		Leaf* newLeaf = static_cast<Leaf*>(leaf);
+		newLeaf->parent = this;
+		this->children.push_back(newLeaf);
+		return static_cast<T*>(newLeaf);
 	}
 };

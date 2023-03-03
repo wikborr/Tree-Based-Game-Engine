@@ -97,16 +97,18 @@ void Tween::resume(){
 	this->paused = false;
 }
 
-void Tween::reset(){
+void Tween::reset(bool withoutProperty){
 	this->paused = false;
 	this->currentTime = -1.0;
-	if(this->floatType == TYPE_FLOAT){
-		float& propertyRef = *static_cast<float*>(this->property);
-		propertyRef = static_cast<float>(this->initValue);
-	}
-	else if(this->floatType == TYPE_DOUBLE){
-		double& propertyRef = *static_cast<double*>(this->property);
-		propertyRef = this->initValue;
+	if(!withoutProperty){
+		if(this->floatType == TYPE_FLOAT){
+			float& propertyRef = *static_cast<float*>(this->property);
+			propertyRef = static_cast<float>(this->initValue);
+		}
+		else if(this->floatType == TYPE_DOUBLE){
+			double& propertyRef = *static_cast<double*>(this->property);
+			propertyRef = this->initValue;
+		}
 	}
 }
 

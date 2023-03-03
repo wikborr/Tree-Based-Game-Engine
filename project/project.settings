@@ -1,0 +1,8 @@
+project_name: Tree-Based Game Engine Demo
+main_grass: grass/demo.grass
+screen_width: 1280
+screen_height: 760
+fullscreen: 0
+limitFPS: 60
+debugCollision: 0
+pixelSnap: 1

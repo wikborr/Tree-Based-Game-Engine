@@ -30,8 +30,12 @@ Leaf::Leaf(Leaf* parent){
 }
 
 Leaf::~Leaf(){
+	if(this->parent != nullptr){
+		this->parent->removeChildFromTree(this);
+	}
 	if(!(this->children.empty())){
-		for(auto i: this->children){
+		std::vector<Leaf*> leavesLeft = this->children;
+		for(auto i: leavesLeft){
 			delete i;
 		}
 	}
@@ -46,6 +50,10 @@ Leaf* Leaf::getChild(std::string name){
 		}
 	}
 	return nullptr;
+}
+
+Leaf* Leaf::getParent(){
+	return this->parent;
 }
 
 std::vector<Leaf*> Leaf::getAllChildren(){
@@ -65,4 +73,20 @@ Leaf* Leaf::getRoot(){
 	Leaf* root = this->parent;
 	while(root != nullptr) root = root->parent;
 	return root;
+}
+
+Leaf* Leaf::removeChildFromTree(std::string name){
+	Leaf* childToRemove = nullptr;
+	for(const auto& i: this->children){
+		if(i->name == name){
+			childToRemove = i;
+		}
+	}
+	return this->removeChildFromTree(childToRemove);
+}
+
+Leaf* Leaf::removeChildFromTree(Leaf* leaf){
+	this->children.erase(std::remove(this->children.begin(), this->children.end(), leaf), this->children.end());
+	leaf->parent = nullptr;
+	return leaf;
 }

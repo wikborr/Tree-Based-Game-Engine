@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include "Utility.h"
 
 //server singleton for file reading
 class FileReader{

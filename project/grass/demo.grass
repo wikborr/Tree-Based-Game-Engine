@@ -1,0 +1,78 @@
+#.grass file structure:
+#
+#Class: nameOfThisInstanceOfTheClass
+#- property: valueOfThePropertyOrPathIfItsAResource
+#	ChildClass: nameOfThisInstanceOfTheChildClass
+#	> pathToAnotherGrassFile: nameOfThisInstanceOfTheGrass
+
+DemoGrass: demoGrass
+	UILayer: uiLayer
+		ColorRect: controls
+		- color: 0.0 0.0 0.0
+		- width: 500
+		- height: 300
+		- position: -400 235
+		- modulate: 1.0 1.0 1.0 0.3
+		Sprite: controlSprite
+		- texture: assets/images/controls.png
+		- position: -400 235
+		- modulate: 1.0 1.0 1.0 0.3
+	BGLayer: bgLayer1
+	- scrollScale: 0.4 0.5
+	- startCameraPos: 0 0
+		Sprite: background1
+		- centered: 0
+		- visible: 1
+		- texture: assets/images/bg1.png
+		- scale: 4 3
+		- position: -1400 -1000
+		Sprite: background2
+		- centered: 0
+		- visible: 0
+		- texture: assets/images/bg2.png
+		- scale: 4 3
+		- position: -1400 -1000
+		Sprite: background3
+		- centered: 0
+		- visible: 0
+		- texture: assets/images/bg3.png
+		- scale: 4 3
+		- position: -1400 -1000
+	BGLayer: bgLayer2
+	- scrollScale: 0.8 0.5
+	- startCameraPos: 0 0
+		Sprite: background
+		- centered: 0
+		- texture: assets/images/bg_add1.png
+		- scale: 5 3
+		- position: -1100 -1000
+	TileMap: tilemap1
+	- position: -640  -640
+	- scale: 2 2
+	- texture: assets/tilesets/caves.png
+	- tileset: 7 7
+	- tilePositions: grass/tilemaps/test.tilemap
+		StaticBody2D: staticBody1
+		- bodyActive: 1
+			CollisionShape2D: collisionShape1
+			- position: 1632 0
+			- rectangleShape2D: 3400 128
+			CollisionShape2D: collisionShape2
+			- position: 1632 1250
+			- rectangleShape2D: 3400 768
+			CollisionShape2D: collisionShape3
+			- position: 0 600
+			- rectangleShape2D: 128 1400
+			CollisionShape2D: collisionShape4
+			- position: 3136 600
+			- rectangleShape2D: 128 1400
+	> grass/enemy.grass: enemy
+	- position: 1600 -330
+	> grass/enemy.grass: enemy2
+	- position: 3100 -330
+	> grass/enemy.grass: enemy3
+	- position: 4800 -40
+	- scale: 3 3
+	> grass/mainCharacter.grass: mainCharacter
+	Tween: controlsTween1
+	Tween: controlsTween2

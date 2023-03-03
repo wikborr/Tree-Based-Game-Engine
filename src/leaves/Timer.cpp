@@ -22,7 +22,8 @@ std::string Timer::leafOperation(){
 	if(this->timeLeft!=-1.0 && !this->paused){
 		this->timeLeft -= timeDelta;
 		if(this->timeLeft < 0.0){
-			this->timeLeft = -1.0;
+			if(this->oneShot) this->timeLeft = -1.0;
+			else this->timeLeft = this->waitTime;
 			this->timeoutSignal = true;
 		}
 	}

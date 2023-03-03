@@ -9,7 +9,7 @@ protected:
 	bool timeoutSignal = false;
 public:
 	Timer(Leaf* parent = nullptr);
-	virtual std::string leafOperation();
+	virtual std::string leafOperation() override;
 
 	bool oneShot = true; //doesn't loop
 	bool paused = false;

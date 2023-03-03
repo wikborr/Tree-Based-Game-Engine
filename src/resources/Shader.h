@@ -1,6 +1,5 @@
 #pragma once
 
-#include <string>
 #include "Settings.h"
 
 class Shader{
@@ -10,7 +9,7 @@ public:
 	std::string fragmentPath = "";
 	std::string geometryPath = "";
 
-	int ID = 0;
+	unsigned ID = 0;
 
 	~Shader();
 	void compileShaders(std::string vertexString, std::string fragmentString, std::string geometryString = "");

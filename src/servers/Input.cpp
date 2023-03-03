@@ -49,6 +49,22 @@ Input::Input(){
 }
 
 bool Input::checkIfInputEvent(){
+	if(this->getScrollOffset() != glm::vec2(0.f)){
+		return true;
+	}
+	if(this->mouseScrollOffset != glm::vec2(0.f)){
+		return true;
+	}
+	for(const auto& i: this->mouseKeys){
+		if(i.first || i.second){
+			return true;
+		}
+	}
+	for(const auto& i: this->keys){
+		if(i.first || i.second){
+			return true;
+		}
+	}
 	bool joyEvent = false;
 	for(int i = 0; i<this->joys.size(); i++){
 		if(this->joys.at(i).active && glfwGetGamepadState(i, &this->joys.at(i).state)){
@@ -75,16 +91,6 @@ bool Input::checkIfInputEvent(){
 		}
 	}
 	if(joyEvent) return joyEvent;
-	for(const auto& i: this->keys){
-		if(i.first || i.second){
-			return true;
-		}
-	}
-	for(const auto& i: this->mouseKeys){
-		if(i.first || i.second){
-			return true;
-		}
-	}
 	return false;
 }
 void Input::removeJustKeys(){
@@ -297,8 +303,20 @@ void Input::cursor_position_callback(GLFWwindow* window, double xpos, double ypo
 	this->mousePos = glm::vec2(xpos, ypos);
 }
 void Input::cursor_enter_callback(GLFWwindow* window, int entered){
-	if(entered) this->mouseOnScreen = true;
-	else this->mouseOnScreen = false;
+	if(entered){
+		double xpos = 0., ypos = 0.;
+		if(this->mouseMode == MOUSE_MODE_CAPTURED){
+			glfwSetCursorPos(window, xpos, ypos);
+		}
+		else{
+			glfwGetCursorPos(window, &xpos, &ypos);
+		}
+		this->prevMousePos = glm::vec2(xpos, ypos);
+		this->mouseOnScreen = true;
+	}
+	else{
+		this->mouseOnScreen = false;
+	}
 }
 void Input::mouse_button_callback(GLFWwindow* window, int button, int action, int mods){
 	if(action == GLFW_PRESS){
@@ -313,9 +331,6 @@ void Input::scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
 }
 void Input::window_focus_callback(GLFWwindow* window, int focused){
 	if(focused){
-		double xpos, ypos;
-		glfwGetCursorPos(window, &xpos, &ypos);
-		this->prevMousePos = glm::vec2(xpos, ypos);
 		this->windowFocused = true;
 	}
 	else{

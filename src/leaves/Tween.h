@@ -37,7 +37,7 @@ protected:
 
 public:
 	Tween(Leaf* parent = nullptr);
-	virtual std::string leafOperation();
+	virtual std::string leafOperation() override;
 
 	double playSpeed = 1.0;
 	bool oneShot = true; //doesn't loop
@@ -46,7 +46,7 @@ public:
 
 	void stop();
 	void resume();
-	void reset();
+	void reset(bool withoutProperty = false);
 	bool isActive() const;
 
 	void propInterpolate(float& property, double initValue, double finValue, double duration, TransType trans = TRANS_LIN, EaseType ease = EASE_IN_OUT);

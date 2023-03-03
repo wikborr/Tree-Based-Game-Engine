@@ -8,7 +8,7 @@ class Sprite: public Leaf2D{
 public:
 	Sprite(Leaf* parent = nullptr);
 	virtual ~Sprite();
-	virtual std::string leafOperation();
+	virtual std::string leafOperation() override;
 
 	//properties
 	bool centered = true;

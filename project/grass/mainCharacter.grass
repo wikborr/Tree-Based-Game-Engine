@@ -1,0 +1,27 @@
+MainCharacter: mainCharacter
+	CollisionShape2D: collisionShape1
+	- rectangleShape2D: 180 400
+	Sprite: sprite1
+	- scale: 4 4
+	- texture: assets/sprites/char.png
+	- modulate: 1.0 1.0 1.0 1.0
+	- sheetRows: 2
+	- sheetColumns: 2
+	Camera2D: camera
+	- current: 1
+	- limitUp: 10000
+	- limitDown: -640
+	- limitLeft: -640
+	- limitRight: 5680
+	- dragMarginUp: 0.1
+	- dragMarginDown: 0.1
+	- dragMarginLeft: 0.1
+	- dragMarginRight: 0.1
+	- smoothingEnabled: 1
+	- smoothingSpeed: 5
+	- zoom: 3 3
+	Tween: tweenG
+	Tween: tweenB
+	Timer: inputTimer
+	- oneShot: 1
+	- waitTime: 0.8

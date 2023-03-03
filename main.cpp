@@ -1,11 +1,9 @@
-#include <GLFW/glfw3.h>
-
 #include "Seed.h"
 
 int main(){
 	//initialize the engine and choose the project to use
 	Seed engine;
-	std::string error_message = engine.plant("projects/demo/");
+	std::string error_message = engine.plant("project/");
 
 	//logging for critical engine errors
 	if(error_message!=""){

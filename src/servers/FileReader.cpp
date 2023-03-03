@@ -1,9 +1,5 @@
 #include "servers/FileReader.h"
 
-#include <fstream>
-#include <sstream>
-#include <iostream>
-
 FileReader& FileReader::ins(){
 	static FileReader instance;
 	return instance;
