@@ -22,7 +22,7 @@ A 2D Game Engine made in C++ that uses OpenGL for rendering and a tree-like obje
 ## Installation
 Generate build files with CMake. MinGW makefile is recommended.
 
-## Using
+## Examples
 Demo: https://github.com/wikborr/Tree-Based-Game-Engine/releases/tag/v0.8
 
 ## Dependencies
