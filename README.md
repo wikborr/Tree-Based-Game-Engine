@@ -2,13 +2,13 @@
 
 ## Description
 
-A 2D Game Engine made in C++ that uses OpenGL for rendering and a tree-like object structure.
+A 2D Game Engine made with C++ that uses OpenGL for rendering and a tree-like object structure.
 
 ## Current features
 - Window configuration
 - Resource pooling
 - Optimized rendering
-- Keyboard, mouse and partially controller input
+- Keyboard, mouse and partial controller input
 - Rendering layers
 - Parallax scrolling
 - Smooth camera
